@@ -35,6 +35,32 @@ pipeline {
             }
         }
 
+        // ── OWASP Dependency Check ────────────────────────────────
+        stage('OWASP Dependency Check') {
+            steps {
+                dependencyCheck(
+                    additionalArguments: '''
+                        --scan ./
+                        --format HTML
+                        --format XML
+                        --out ./dependency-check-report
+                        --prettyPrint
+                    ''',
+                    odcInstallation: 'OWASP-Dependency-Check'
+                )
+            }
+            post {
+                always {
+                    dependencyCheckPublisher(
+                        pattern: 'dependency-check-report/dependency-check-report.xml',
+                        failedTotalCritical: 0,
+                        failedTotalHigh: 5,
+                        unstableTotalHigh: 3
+                    )
+                }
+            }
+        }
+
         stage('Publish') {
             steps {
                 sh '''
@@ -49,6 +75,9 @@ pipeline {
         stage('Archive') {
             steps {
                 archiveArtifacts artifacts: "${PUBLISH_DIR}/**/*",
+                                 fingerprint: true
+                // Also archive the OWASP report
+                archiveArtifacts artifacts: "dependency-check-report/**/*",
                                  fingerprint: true
             }
         }
