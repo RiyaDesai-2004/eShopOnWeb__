@@ -48,3 +48,54 @@ pipeline {
                             --out ./dependency-check-report \
                             --project "eShopOnWeb" \
                             --data /opt/dependency-check-data \
+                            --nvdApiKey ${NVD_KEY} \
+                            --prettyPrint \
+                            --enableExperimental
+                    '''
+                }
+            }
+            post {
+                always {
+                    dependencyCheckPublisher(
+                        pattern: 'dependency-check-report/dependency-check-report.xml',
+                        failedTotalCritical: 0,
+                        failedTotalHigh: 5,
+                        unstableTotalHigh: 3
+                    )
+                    archiveArtifacts artifacts: 'dependency-check-report/**/*',
+                                     allowEmptyArchive: true
+                }
+            }
+        }
+
+        stage('Publish') {
+            steps {
+                sh '''
+                    dotnet publish src/Web/Web.csproj \
+                        --configuration ${BUILD_CONFIG} \
+                        --no-build \
+                        --output ${PUBLISH_DIR}
+                '''
+            }
+        }
+
+        stage('Archive') {
+            steps {
+                archiveArtifacts artifacts: "${PUBLISH_DIR}/**/*",
+                                 fingerprint: true
+            }
+        }
+    }
+
+    post {
+        success {
+            echo '✅ Pipeline completed successfully!'
+        }
+        failure {
+            echo '❌ Pipeline failed. Check logs above.'
+        }
+        always {
+            cleanWs()
+        }
+    }
+}
