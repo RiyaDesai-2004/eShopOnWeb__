@@ -7,6 +7,7 @@ pipeline {
         SOLUTION_FILE    = "eShopOnWeb.sln"
         BUILD_CONFIG     = "Release"
         PUBLISH_DIR      = "publish"
+        DC_HOME          = "/opt/dependency-check/bin"
     }
 
     stages {
@@ -38,25 +39,31 @@ pipeline {
         // ── OWASP Dependency Check ────────────────────────────────
         stage('OWASP Dependency Check') {
             steps {
-                dependencyCheck(
-                    additionalArguments: '''
-                        --scan ./
-                        --format HTML
-                        --format XML
-                        --out ./dependency-check-report
-                        --prettyPrint
-                    ''',
-                    odcInstallation: 'OWASP-Dependency-Check'
-                )
+                sh '''
+                    mkdir -p dependency-check-report
+
+                    ${DC_HOME}/dependency-check.sh \
+                        --scan ./ \
+                        --format HTML \
+                        --format XML \
+                        --out ./dependency-check-report \
+                        --project "eShopOnWeb" \
+                        --prettyPrint \
+                        --enableExperimental
+                '''
             }
             post {
                 always {
+                    // Publish XML report to Jenkins dashboard
                     dependencyCheckPublisher(
                         pattern: 'dependency-check-report/dependency-check-report.xml',
                         failedTotalCritical: 0,
                         failedTotalHigh: 5,
                         unstableTotalHigh: 3
                     )
+                    // Also archive the HTML report
+                    archiveArtifacts artifacts: 'dependency-check-report/**/*',
+                                     allowEmptyArchive: true
                 }
             }
         }
@@ -75,9 +82,6 @@ pipeline {
         stage('Archive') {
             steps {
                 archiveArtifacts artifacts: "${PUBLISH_DIR}/**/*",
-                                 fingerprint: true
-                // Also archive the OWASP report
-                archiveArtifacts artifacts: "dependency-check-report/**/*",
                                  fingerprint: true
             }
         }
