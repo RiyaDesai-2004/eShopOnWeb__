@@ -2,7 +2,6 @@ pipeline {
     agent any
 
     environment {
-        // ✅ FIXED: Point away from /tmp to home directory
         DOTNET_CLI_HOME  = "/home/riya/.dotnet_cli"
         NUGET_PACKAGES   = "/home/riya/.nuget/packages"
         SOLUTION_FILE    = "eShopOnWeb.sln"
@@ -11,14 +10,6 @@ pipeline {
     }
 
     stages {
-
-        stage('Checkout') {
-            steps {
-                git branch: 'main',
-                    credentialsId: 'main_creds',
-                    url: 'https://github.com/RiyaDesai-2004/eShopOnWeb__.git'
-            }
-        }
 
         stage('Restore') {
             steps {
@@ -38,14 +29,9 @@ pipeline {
                     dotnet test ${SOLUTION_FILE} \
                         --configuration ${BUILD_CONFIG} \
                         --no-build \
-                        --logger "trx;LogFileName=test-results.trx" \
+                        --logger "trx" \
                         --results-directory ./TestResults
                 '''
-            }
-            post {
-                always {
-                    junit '**/TestResults/*.trx'
-                }
             }
         }
 
