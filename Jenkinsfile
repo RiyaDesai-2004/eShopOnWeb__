@@ -7,8 +7,6 @@ pipeline {
         SOLUTION_FILE    = "eShopOnWeb.sln"
         BUILD_CONFIG     = "Release"
         PUBLISH_DIR      = "publish"
-        DC_HOME          = "/opt/dependency-check/bin"
-        DC_DATA          = "/opt/dependency-check-data"   // persistent DB dir
     }
 
     stages {
@@ -37,71 +35,16 @@ pipeline {
             }
         }
 
-        // ── OWASP Dependency Check ────────────────────────────────
         stage('OWASP Dependency Check') {
             steps {
-                // Inject NVD API Key from Jenkins credentials
                 withCredentials([string(credentialsId: 'nvd-api-key', variable: 'NVD_KEY')]) {
                     sh '''
                         mkdir -p dependency-check-report
 
-                        ${DC_HOME}/dependency-check.sh \
+                        /opt/dependency-check/bin/dependency-check.sh \
                             --scan ./src \
                             --format HTML \
                             --format XML \
                             --out ./dependency-check-report \
                             --project "eShopOnWeb" \
-                            --data ${DC_DATA} \
-                            --nvdApiKey ${NVD_KEY} \
-                            --prettyPrint \
-                            --enableExperimental \
-                            --connectionTimeout 60 \
-                            --noupdate false
-                    '''
-                }
-            }
-            post {
-                always {
-                    dependencyCheckPublisher(
-                        pattern: 'dependency-check-report/dependency-check-report.xml',
-                        failedTotalCritical: 0,
-                        failedTotalHigh: 5,
-                        unstableTotalHigh: 3
-                    )
-                    archiveArtifacts artifacts: 'dependency-check-report/**/*',
-                                     allowEmptyArchive: true
-                }
-            }
-        }
-
-        stage('Publish') {
-            steps {
-                sh '''
-                    dotnet publish src/Web/Web.csproj \
-                        --configuration ${BUILD_CONFIG} \
-                        --no-build \
-                        --output ${PUBLISH_DIR}
-                '''
-            }
-        }
-
-        stage('Archive') {
-            steps {
-                archiveArtifacts artifacts: "${PUBLISH_DIR}/**/*",
-                                 fingerprint: true
-            }
-        }
-    }
-
-    post {
-        success {
-            echo '✅ Pipeline completed successfully!'
-        }
-        failure {
-            echo '❌ Pipeline failed. Check logs above.'
-        }
-        always {
-            cleanWs()
-        }
-    }
-}
+                            --data /opt/dependency-check-data \
